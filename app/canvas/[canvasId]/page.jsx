@@ -108,8 +108,10 @@ export default function CanvasPage() {
                 },
                 body: JSON.stringify(payload)
             })
+            const data = await res.json();
+            console.log('API Response:', data);
         } catch (error) {
-            console.error(error)
+            console.error('API Error:', error)
         }
         finally {
             setTimeout(() => {
@@ -120,18 +122,25 @@ export default function CanvasPage() {
 
     const fetchNewImages = async () => {
         setLoading(true)
-        const [images, editedImgs] = await Promise.all([
-            await supabase.from("images_created")
-                .select().eq("canvas_id", canvasId).order("created_at", { ascending: false }),
-            await supabase.from("images_edited")
-                .select().eq("canvas_id", canvasId).order("created_at", { ascending: false })
-        ])
-        setCreatedImages(images.data)
-        setEditedImages(editedImgs.data)
-        setLoading(false)
-        setSelectedImage("")
-        setPrompt("")
-        setImageParams(intialParams)
+        try {
+            const [images, editedImgs] = await Promise.all([
+                await supabase.from("images_created")
+                    .select().eq("canvas_id", canvasId).order("created_at", { ascending: false }),
+                await supabase.from("images_edited")
+                    .select().eq("canvas_id", canvasId).order("created_at", { ascending: false })
+            ])
+            console.log('Fetched Created Images:', images.data);
+            console.log('Fetched Edited Images:', editedImgs.data);
+            setCreatedImages(images.data)
+            setEditedImages(editedImgs.data)
+        } catch (error) {
+            console.error('Fetch Error:', error);
+        } finally {
+            setLoading(false)
+            setSelectedImage("")
+            setPrompt("")
+            setImageParams(intialParams)
+        }
     }
 
     useEffect(() => {
@@ -297,46 +306,77 @@ export default function CanvasPage() {
                 </div>}
                 <div className="w-full items-center justfy-start 
                 flex max-w-[100%] overflow-x-scroll min-h-[400px] space-x-4 p-6">
-                    {createdImages?.map(image => (
-                        <img
-                            onClick={() => {
-                                setSelectedImage(image)
-                                setPrompt(image.prompt)
-                                setImageParams(curr => ({ ...curr, model: models[2].version }))
-                            }
-
-                            }
-                            key={image.id} src={image.url} alt={image.prompt}
-                            className={`w-[300px] h-[300px] object-center smooth cursor-pointer
-                    object-contain border border-white/20 hover:opacity-50
-                     ${image.url === selectedImage.url && "opacity-50"} `}
-                        />
-                    ))}
+                    {loading ? (
+                        <div className="text-white">Loading...</div>
+                    ) : createdImages?.length > 0 ? (
+                        createdImages.map(image => (
+                            <img
+                                onClick={() => {
+                                    setSelectedImage(image)
+                                    setPrompt(image.prompt)
+                                    setImageParams(curr => ({ ...curr, model: models[2].version }))
+                                }}
+                                key={image.id} 
+                                src={image.url} 
+                                alt={image.prompt}
+                                className={`w-[300px] h-[300px] object-center smooth cursor-pointer
+                                object-contain border border-white/20 hover:opacity-50
+                                ${image.url === selectedImage?.url && "opacity-50"}`}
+                                onError={(e) => {
+                                    console.error('Image load error:', e);
+                                    e.target.style.display = 'none';
+                                }}
+                            />
+                        ))
+                    ) : (
+                        <div className="text-white/50">No images generated yet</div>
+                    )}
                 </div>
                 {/* edited_images display */}
                 <div className="items-center justify-start flex max-w-[100%]
                  overflow-x-scroll min-h-[400px] space-x-4 p-6">
-                    {editedImages?.map(image => (
-                        !image.caption ? <img key={image.id}
-                            src={image.url}
-                            alt={image.url}
-                            onClick={() => {
-                                setSelectedImage(image)
-                                setPrompt(image.prompt)
-                                setImageParams(curr => ({ ...curr, model: models[2].version }))
-                            }}
-                            className="w-[300px] h-[300px] cursor-pointer hover:opacity-50 smooth object-center
-                            object-contain border border-white/20"
-                        /> :
-                            <div
-                                key={image.id}
-                                className="text-white py-12 min-w-[300px] min-h-[300px] items-center justify-center
-                        flex border border-white/20 px-6 relative
-                        ">
-                                <p className="w-full">{image.caption}</p>
-                                <img src={image.url} className="absolute w-full h-full z-0 opacity-10" />
-                            </div>
-                    ))}
+                    {loading ? (
+                        <div className="text-white">Loading...</div>
+                    ) : editedImages?.length > 0 ? (
+                        editedImages.map(image => (
+                            !image.caption ? (
+                                <img 
+                                    key={image.id}
+                                    src={image.url}
+                                    alt={image.url}
+                                    onClick={() => {
+                                        setSelectedImage(image)
+                                        setPrompt(image.prompt)
+                                        setImageParams(curr => ({ ...curr, model: models[2].version }))
+                                    }}
+                                    className="w-[300px] h-[300px] cursor-pointer hover:opacity-50 smooth object-center
+                                    object-contain border border-white/20"
+                                    onError={(e) => {
+                                        console.error('Image load error:', e);
+                                        e.target.style.display = 'none';
+                                    }}
+                                />
+                            ) : (
+                                <div
+                                    key={image.id}
+                                    className="text-white py-12 min-w-[300px] min-h-[300px] items-center justify-center
+                                    flex border border-white/20 px-6 relative"
+                                >
+                                    <p className="w-full">{image.caption}</p>
+                                    <img 
+                                        src={image.url} 
+                                        className="absolute w-full h-full z-0 opacity-10"
+                                        onError={(e) => {
+                                            console.error('Image load error:', e);
+                                            e.target.style.display = 'none';
+                                        }}
+                                    />
+                                </div>
+                            )
+                        ))
+                    ) : (
+                        <div className="text-white/50">No edited images yet</div>
+                    )}
                 </div>
             </div>
             {/* image paramaters */}
