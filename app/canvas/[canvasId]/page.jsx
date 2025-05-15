@@ -60,12 +60,12 @@ let models = [
     { name: "bytedance/sdxl-lightning", version: "5f24084160c9089501c1b3545d9be3c27883ae2239b6f412990e82d4a6210f8f" }
     , { name: "stable-diffusion XL", version: "7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc" }]
 const dimensions = [
-    { width: 512, height: 512 },
-    { width: 1024, height: 1024 },
-    { width: 640, height: 384 },
-    { width: 384, height: 640 },
-    { width: 768, height: 512 },
-    { width: 512, height: 768 }
+    { width: 512, height: 512, id: "512x512" },
+    { width: 1024, height: 1024, id: "1024x1024" },
+    { width: 640, height: 384, id: "640x384" },
+    { width: 384, height: 640, id: "384x640" },
+    { width: 768, height: 512, id: "768x512" },
+    { width: 512, height: 768, id: "512x768" }
 ];
 let imagesNumbers = [{ name: 1, value: "1 image" },
 { name: 2, value: "2 images" },
@@ -92,6 +92,53 @@ export default function CanvasPage() {
     const [editingCommand, setEditingCommand] = useState("Remove Background")
     const [loadingEditing, setLoadingEditing] = useState(false)
 
+    const generateImages = async () => {
+        if (prompt.trim() == "" || !prompt) return;
+        let payload = {
+            prompt,
+            imageParams,
+            canvas: canvasId,
+            userId: user.id
+        }
+        try {
+            const res = await fetch("/api/generate", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            })
+        } catch (error) {
+            console.error(error)
+        }
+        finally {
+            setTimeout(() => {
+                fetchNewImages()
+            }, 3000)
+        }
+    }
+
+    const fetchNewImages = async () => {
+        setLoading(true)
+        const [images, editedImgs] = await Promise.all([
+            await supabase.from("images_created")
+                .select().eq("canvas_id", canvasId).order("created_at", { ascending: false }),
+            await supabase.from("images_edited")
+                .select().eq("canvas_id", canvasId).order("created_at", { ascending: false })
+        ])
+        setCreatedImages(images.data)
+        setEditedImages(editedImgs.data)
+        setLoading(false)
+        setSelectedImage("")
+        setPrompt("")
+        setImageParams(intialParams)
+    }
+
+    useEffect(() => {
+        if (!supabase || !canvasId) return;
+        fetchNewImages()
+    }, [supabase, canvasId])
+
     console.log(imageParams)
 
     return (<div className="min-h-screen bg-black items-center
@@ -117,7 +164,7 @@ export default function CanvasPage() {
                         </SelectTrigger>
                         <SelectContent className="bg-black text-white">
                             {filters.map(filter => (
-                                <SelectItem key={filter} value={filter.value}
+                                <SelectItem key={filter.value} value={filter.value}
                                     className="text-white cursor-pointer">{filter.name}</SelectItem>
                             ))}
                         </SelectContent>
@@ -134,7 +181,7 @@ export default function CanvasPage() {
                      py-6 px-6 text-white smooth w-[99%] h-[30vh] " />
                 </div>
                 <div className="w-full items-center justify-center flex">
-                    <button className="button">
+                    <button onClick={generateImages} className="button">
                         generate
                     </button>
                 </div>
@@ -250,7 +297,7 @@ export default function CanvasPage() {
                 </div>}
                 <div className="w-full items-center justfy-start 
                 flex max-w-[100%] overflow-x-scroll min-h-[400px] space-x-4 p-6">
-                    {createdImages.map(image => (
+                    {createdImages?.map(image => (
                         <img
                             onClick={() => {
                                 setSelectedImage(image)
@@ -269,7 +316,7 @@ export default function CanvasPage() {
                 {/* edited_images display */}
                 <div className="items-center justify-start flex max-w-[100%]
                  overflow-x-scroll min-h-[400px] space-x-4 p-6">
-                    {editedImages.map(image => (
+                    {editedImages?.map(image => (
                         !image.caption ? <img key={image.id}
                             src={image.url}
                             alt={image.url}
@@ -308,7 +355,7 @@ export default function CanvasPage() {
                         </SelectTrigger>
                         <SelectContent className="bg-black text-white">
                             {models.map(model => (
-                                <SelectItem key={model} value={model.version}
+                                <SelectItem key={model.version} value={model.version}
                                     className="text-white cursor-pointer">{model.name}</SelectItem>
                             ))}
                         </SelectContent>
@@ -321,7 +368,7 @@ export default function CanvasPage() {
                         {dimensions.map(dimension => (
                             <div
                                 onClick={() => setImageParams(curr => ({ ...curr, dimension }))}
-                                key={dimension}
+                                key={dimension.id}
                                 className={`text-sm px-4 py-1 border border-white/10
                              items-center justify-center smooth flex cursor-pointer 
                              hover:text-black hover:bg-white/50
@@ -351,7 +398,7 @@ export default function CanvasPage() {
                     <div className="grid grid-cols-2 gap-3">
                         {imagesNumbers.map(number => (
                             <div
-                                key={number}
+                                key={number.name}
                                 onClick={() => setImageParams(curr => ({ ...curr, number: number.name }))}
                                 className={`text-sm px-1 border border-white/10 items-center justify-center
                                 flex hover:bg-white/50 smooth cursor-pointer ${imageParams.number == number.name && "bg-white text-black smooth"}
