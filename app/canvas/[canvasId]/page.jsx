@@ -91,6 +91,7 @@ export default function CanvasPage() {
     const [OpenDialog, setOpenDialog] = useState(false)
     const [editingCommand, setEditingCommand] = useState("Remove Background")
     const [loadingEditing, setLoadingEditing] = useState(false)
+    const [imageToImageInput, setImageToImageInput] = useState("")
 
     const generateImages = async () => {
         if (prompt.trim() == "" || !prompt) return;
@@ -147,6 +148,73 @@ export default function CanvasPage() {
         if (!supabase || !canvasId) return;
         fetchNewImages()
     }, [supabase, canvasId])
+
+    const editImage = async () => {
+        if (!selectedImage || loadingEditing) return;
+        setLoadingEditing(true)
+        
+        if (editingCommand === "image to image") {
+            if (!imageToImageInput.trim()) {
+                setLoadingEditing(false);
+                return;
+            }
+            
+            let payload = {
+                imageUrl: selectedImage.url,
+                prompt: imageToImageInput,
+                canvas: canvasId,
+                userId: user.id
+            }
+            
+            try {
+                const res = await fetch("/api/image-to-image-edit", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                })
+                const data = await res.json();
+                console.log('Image to Image Edit API Response:', data);
+            } catch (error) {
+                console.error('Image to Image Edit API Error:', error)
+            } finally {
+                setOpenDialog(false)
+                setLoadingEditing(false)
+                setImageToImageInput("")
+                setTimeout(() => {
+                    fetchNewImages()
+                }, 2000)
+            }
+            return;
+        }
+        
+        let payload = {
+            imageUrl: selectedImage.url,
+            command: editingCommand,
+            canvas: canvasId,
+            userId: user.id
+        }
+        try {
+            const res = await fetch("/api/edit", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            })
+            const data = await res.json();
+            console.log('Edit API Response:', data);
+        } catch (error) {
+            console.error('Edit API Error:', error)
+        } finally {
+            setOpenDialog(false)
+            setLoadingEditing(false)
+            setTimeout(() => {
+                fetchNewImages()
+            }, 2000)
+        }
+    }
 
     console.log(imageParams)
 
@@ -208,89 +276,123 @@ export default function CanvasPage() {
                             <DialogTrigger onClick={() => setOpenDialog(true)}
                                 className="label">Edit</DialogTrigger>
                             <DialogContent onInteractOutside={() => setOpenDialog(false)}
-                                className="bg-black text-white py-12 filter backdrop-blur-md 
-                                bg-opacity-40 border-white/20 border"
+                                className="bg-black/90 text-white py-12 filter backdrop-blur-xl 
+                                border-white/20 border rounded-xl max-w-2xl w-full"
                             >
                                 <DialogHeader>
-                                    <DialogTitle>What do you want to do with this image ?</DialogTitle>
-                                    <DialogDescription className="w-full items-center justify-center flex flex-col space-y-10">
-                                        <div className="w-full py-6 max-h-[40vh] 
-                                        overflow-y-auto">
+                                    <DialogTitle className="text-2xl font-bold text-center mb-8">
+                                        Edit Image
+                                    </DialogTitle>
+                                    <DialogDescription className="w-full items-center justify-center flex flex-col space-y-8">
+                                        <div className="w-full grid grid-cols-2 gap-4 px-4">
                                             {/* Remove Background */}
                                             <div
                                                 onClick={() => setEditingCommand("Remove Background")}
-                                                className={`editing_command 
-                                                ${editingCommand === "Remove Background" ? "border-white text-white bg-white/5" : "border-white/10"} `}>
-                                                <p>Remove Background</p>
-                                                {editingCommand == "Remove Background" && <p
-                                                    className="text-xs italic smooth text-white/20">
-                                                    remove the background of this image</p>}
+                                                className={`p-6 rounded-lg transition-all duration-200 hover:scale-105
+                                                ${editingCommand === "Remove Background" ? 
+                                                "bg-white/10 border-2 border-white" : 
+                                                "bg-white/5 border border-white/20"}`}>
+                                                <h3 className="text-lg font-semibold mb-2">Remove Background</h3>
+                                                <p className="text-sm text-gray-300">
+                                                    Remove the background from your image
+                                                </p>
                                             </div>
-                                            {/* upscale */}
+
+                                            {/* Upscale */}
                                             <div
                                                 onClick={() => setEditingCommand("upscale")}
-                                                className={`editing_command 
-                                                        ${editingCommand == "upscale" ?
-                                                        "border-white text-white bg-white/5"
-                                                        : "border-white/10"}`}>
-                                                <p>
-                                                    upscale
+                                                className={`p-6 rounded-lg transition-all duration-200 hover:scale-105
+                                                ${editingCommand === "upscale" ? 
+                                                "bg-white/10 border-2 border-white" : 
+                                                "bg-white/5 border border-white/20"}`}>
+                                                <h3 className="text-lg font-semibold mb-2">Upscale</h3>
+                                                <p className="text-sm text-gray-300">
+                                                    Enhance image quality and resolution
                                                 </p>
-                                                {editingCommand == "upscale"
-                                                    && <p className="text-xs italic 
-                                                                smooth text-white/20">
-                                                        create higher-quality image
-                                                        from this image</p>}
                                             </div>
-                                            {/* caption */}
+
+                                            {/* Caption */}
                                             <div
                                                 onClick={() => setEditingCommand("captionize")}
-                                                className={`editing_command 
-                                                        ${editingCommand == "captionize" ?
-                                                        "border-white text-white bg-white/5"
-                                                        : "border-white/10"}`}>
-                                                <p>captionize</p>
-                                                {editingCommand == "captionize" &&
-                                                    <p className="text-xs italic smooth
-                                                                 text-white/20">generate detailed
-                                                        caption for this images</p>}
+                                                className={`p-6 rounded-lg transition-all duration-200 hover:scale-105
+                                                ${editingCommand === "captionize" ? 
+                                                "bg-white/10 border-2 border-white" : 
+                                                "bg-white/5 border border-white/20"}`}>
+                                                <h3 className="text-lg font-semibold mb-2">Generate Caption</h3>
+                                                <p className="text-sm text-gray-300">
+                                                    Create an AI-generated description
+                                                </p>
                                             </div>
-                                            {/* restore ai_face */}
+
+                                            {/* Restore Faces */}
                                             <div
-                                                onClick={() =>
-                                                    setEditingCommand("restore faces")}
-                                                className={`editing_command 
-                                                        ${editingCommand == "restore faces" ?
-                                                        "border-white text-white bg-white/5"
-                                                        : "border-white/10"}`}>
-                                                <p>restore faces</p>
-                                                {editingCommand == "restore faces"
-                                                    &&
-                                                    <p className="text-xs italic smooth 
-                                                            text-white/20">
-                                                        face restoration for any
-                                                        AI-generated faces in this image
-                                                    </p>}
+                                                onClick={() => setEditingCommand("restore faces")}
+                                                className={`p-6 rounded-lg transition-all duration-200 hover:scale-105
+                                                ${editingCommand === "restore faces" ? 
+                                                "bg-white/10 border-2 border-white" : 
+                                                "bg-white/5 border border-white/20"}`}>
+                                                <h3 className="text-lg font-semibold mb-2">Restore Faces</h3>
+                                                <p className="text-sm text-gray-300">
+                                                    Enhance and fix facial features
+                                                </p>
                                             </div>
-                                            {/* restore old_photo */}
+
+                                            {/* Restore Photo */}
                                             <div
-                                                onClick={() =>
-                                                    setEditingCommand("restore old photo")}
-                                                className={`editing_command 
-                                                        ${editingCommand == "restore old photo" ?
-                                                        "border-white text-white bg-white/5"
-                                                        : "border-white/10"}`}>
-                                                <p>restore old photo</p>
-                                                {editingCommand == "restore old photo"
-                                                    &&
-                                                    <p className="text-xs italic smooth 
-                                                            text-white/20">
-                                                        bring your old photos back to life
-                                                    </p>}
+                                                onClick={() => setEditingCommand("restore old photo")}
+                                                className={`p-6 rounded-lg transition-all duration-200 hover:scale-105
+                                                ${editingCommand === "restore old photo" ? 
+                                                "bg-white/10 border-2 border-white" : 
+                                                "bg-white/5 border border-white/20"}`}>
+                                                <h3 className="text-lg font-semibold mb-2">Restore Photo</h3>
+                                                <p className="text-sm text-gray-300">
+                                                    Revive and enhance old photographs
+                                                </p>
+                                            </div>
+
+                                            {/* Image to Image Edit */}
+                                            <div
+                                                onClick={() => {
+                                                    setEditingCommand("image to image")
+                                                    console.log("Selected image URL:", selectedImage.url)
+                                                }}
+                                                className={`p-6 rounded-lg transition-all duration-200 hover:scale-105
+                                                ${editingCommand === "image to image" ? 
+                                                "bg-white/10 border-2 border-white" : 
+                                                "bg-white/5 border border-white/20"}`}>
+                                                <h3 className="text-lg font-semibold mb-2">Image to Image Edit</h3>
+                                                <p className="text-sm text-gray-300">
+                                                    Transform image based on text prompt
+                                                </p>
                                             </div>
                                         </div>
-                                        <button className="button">
-                                            {loadingEditing ? "Loading..." : editingCommand}
+                                        
+                                        {editingCommand === "image to image" && (
+                                            <div className="w-full px-4 mt-4 space-y-4">
+                                                <input
+                                                    type="text"
+                                                    value={imageToImageInput}
+                                                    onChange={(e) => setImageToImageInput(e.target.value)}
+                                                    placeholder="Enter your prompt for image transformation..."
+                                                    className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-white/40"
+                                                />
+                                                <button 
+                                                    onClick={editImage}
+                                                    disabled={!imageToImageInput.trim() || loadingEditing}
+                                                    className={`w-full py-2 rounded-lg font-semibold transition-colors duration-200
+                                                    ${!imageToImageInput.trim() || loadingEditing 
+                                                        ? 'bg-white/20 text-white/50 cursor-not-allowed' 
+                                                        : 'bg-white text-black hover:bg-white/90'}`}
+                                                >
+                                                    {loadingEditing ? "Processing..." : "Transform Image"}
+                                                </button>
+                                            </div>
+                                        )}
+                                        
+                                        <button onClick={editImage} 
+                                            className="mt-8 px-8 py-3 bg-white text-black rounded-lg font-semibold
+                                            hover:bg-white/90 transition-colors duration-200">
+                                            {loadingEditing ? "Processing..." : "Apply Edit"}
                                         </button>
                                     </DialogDescription>
                                 </DialogHeader>
